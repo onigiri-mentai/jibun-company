@@ -9,7 +9,7 @@ function addDays(date,days) { const copy=new Date(date.getFullYear(),date.getMon
 function parseDate(value) { if(!/^\d{4}-\d{2}-\d{2}$/.test(value||''))return null;const [y,m,d]=value.split('-').map(Number),date=new Date(y,m-1,d,12);return localDate(date)===value?date:null; }
 function quickDeadline(option,now=new Date()) { if(option==='today')return localDate(now);if(option==='tomorrow')return localDate(addDays(now,1));if(option==='week')return localDate(addDays(now,(7-now.getDay())%7));return null; }
 function deadlineInfo(value,now=new Date()) { const date=parseDate(value);if(!date)return null;const today=localDate(now),tomorrow=quickDeadline('tomorrow',now),label=value===today?'今日まで':value===tomorrow?'明日まで':`${date.getMonth()+1}/${date.getDate()}まで`;return {label:value<today?`${date.getMonth()+1}/${date.getDate()} 締切済み`:label,near:value<=tomorrow,overdue:value<today}; }
-const initial = () => ({exp:0,day:day(),today:0,sales:0,companyName:'株式会社じぶん',established:false,sound:false,tasks:[{id:'first1',name:'洗濯する',difficulty:'easy'},{id:'first2',name:'メールを返す',difficulty:'normal'},{id:'first3',name:'歯磨きする',difficulty:'easy'}]});
+const initial = () => ({exp:0,day:day(),today:0,sales:0,companyName:'株式会社じぶん',established:false,sound:false,completed:[],legacyExp:0,tasks:[{id:'first1',name:'洗濯する',difficulty:'easy'},{id:'first2',name:'メールを返す',difficulty:'normal'},{id:'first3',name:'歯磨きする',difficulty:'easy'}]});
 let state;
 try { state=JSON.parse(localStorage.getItem(STORAGE)); } catch {}
 if(!state||!Number.isFinite(state.exp)||state.exp<0||!Array.isArray(state.tasks))state=initial();
@@ -17,6 +17,10 @@ if(!state||!Number.isFinite(state.exp)||state.exp<0||!Array.isArray(state.tasks)
 if(typeof state.companyName!=='string'||!state.companyName.trim())state.companyName='株式会社じぶん';
 if(typeof state.established!=='boolean')state.established=true;
 state.tasks=state.tasks.filter(t=>t&&typeof t.name==='string').map(t=>({...t,difficulty:difficulties[t.difficulty]?t.difficulty:'normal',deadline:parseDate(t.deadline)?t.deadline:null}));
+// Older versions kept aggregate EXP, but did not store completed project names.
+if(!Array.isArray(state.completed)){state.completed=[];state.legacyExp=state.exp;}
+state.completed=state.completed.filter(t=>t&&typeof t.name==='string'&&Number.isFinite(t.exp)&&t.exp>=0&&Number.isFinite(new Date(t.completedAt).getTime()));
+if(!Number.isFinite(state.legacyExp))state.legacyExp=Math.max(0,state.exp-state.completed.reduce((sum,t)=>sum+t.exp,0));
 let busy=false,sound=state.sound===true,deadlineChoice=null,companyMode='rename';
 function daily(){if(state.day!==day()){state.day=day();state.today=0;state.sales=0;}}
 function save(){try{localStorage.setItem(STORAGE,JSON.stringify(state));}catch{}}
@@ -27,6 +31,7 @@ function render(visualExp=state.exp){
  $('level').textContent=g.level;$('exp').textContent=g.remaining.toLocaleString();$('goal').textContent=g.cost.toLocaleString();$('progress').style.width=g.remaining/g.cost*100+'%';$('percent').textContent=Math.floor(g.remaining/g.cost*100)+'%';
  $('today').textContent=state.today;$('sales').textContent=state.sales.toLocaleString();$('count').textContent=state.tasks.length;
  $('office').className='office '+(g.level>=3?'lv3':g.level===2?'lv2':'');$('unlock').textContent=g.level===1?'🌿 観葉植物をお迎え':g.level===2?'💻 PCと棚を導入':'✦ 会社がもっと成長';$('office-note').textContent=g.level===1?'小さな一歩から、大きな会社へ。':g.level===2?'緑のあるオフィス。いい感じ。':'社長、会社らしくなってきました。';
+ $('history-count').textContent=state.completed.length;
  $('tasks').replaceChildren();
  for(const task of state.tasks){
   const d=difficulties[task.difficulty],due=deadlineInfo(task.deadline),button=document.createElement('button');button.className='task'+(due?.near?' deadline-near':'');
@@ -39,8 +44,24 @@ function render(visualExp=state.exp){
   button.append(circle,details,reward);button.onclick=()=>complete(task.id);$('tasks').append(button);
  }
  if(!state.tasks.length){const e=document.createElement('div');e.className='empty';e.textContent='全案件、完遂。社長、おつかれさまでした。\n営業部は次の受注をお待ちしています。';$('tasks').append(e);}
- save();
+ renderHistory();save();
 }
+function renderHistory(){
+ $('history-company').textContent=state.companyName+' の、これまでの仕事。';$('completed-count').textContent=state.completed.length.toLocaleString();$('completed-sales').textContent=state.exp.toLocaleString();
+ $('history-legacy').hidden=state.legacyExp===0;$('history-legacy').textContent='以前の実績 '+state.legacyExp.toLocaleString()+' EXPも引き継いでいます。旧版には案件名の記録がないため、一覧は今回の更新後の達成分から残ります。';
+ const list=$('history-list');list.replaceChildren();
+ if(!state.completed.length){const empty=document.createElement('div');empty.className='history-empty';const title=document.createElement('h2');title.textContent='まだ、まっさらな実績帳。';const note=document.createElement('p');note.textContent='ひとつ案件を完遂すると、ここに記録されます。歯磨きだって、立派な業務実績です。';empty.append(title,note);list.append(empty);return;}
+ let previousDay=null;const today=day(),yesterday=localDate(addDays(new Date(),-1));
+ for(const task of [...state.completed].sort((a,b)=>new Date(b.completedAt)-new Date(a.completedAt))){
+  const date=new Date(task.completedAt),dateKey=localDate(date);
+  if(dateKey!==previousDay){const heading=document.createElement('h2');heading.className='history-day';heading.textContent=dateKey===today?'今日の仕事':dateKey===yesterday?'昨日の仕事':`${date.getFullYear()}年${date.getMonth()+1}月${date.getDate()}日の仕事`;list.append(heading);previousDay=dateKey;}
+  const card=document.createElement('article');card.className='history-record';const seal=document.createElement('span');seal.className='history-seal';seal.textContent='完遂';seal.setAttribute('aria-hidden','true');
+  const details=document.createElement('div');details.className='history-details';const name=document.createElement('h3');name.textContent=task.name;const meta=document.createElement('p');const difficulty=difficulties[task.difficulty]||difficulties.normal;meta.textContent=`${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')} 完遂 ／ ${difficulty.name}`;details.append(name,meta);
+  const exp=document.createElement('div');exp.className='history-reward';exp.textContent='+'+task.exp.toLocaleString();const unit=document.createElement('small');unit.textContent='EXP';exp.append(unit);card.append(seal,details,exp);list.append(card);
+ }
+}
+function updateView(){const history=location.hash==='#history';$('home-screen').hidden=history;$('history-screen').hidden=!history;$('home-bottom').hidden=history;if(history){renderHistory();$('history-title').focus();}window.scrollTo({top:0,behavior:'instant'});}
+$('open-history').onclick=()=>{if(!busy)location.hash='history';};$('history-back').onclick=()=>{location.hash='';};window.addEventListener('hashchange',updateView);
 // A tiny in-house orchestra: all sounds are synthesized, with no audio downloads.
 let audio,master;const sounding=new Set();
 function ensureAudio(){if(!sound)return;try{if(!audio){audio=new(window.AudioContext||window.webkitAudioContext)();master=audio.createGain();master.gain.value=.32;const limiter=audio.createDynamicsCompressor();limiter.threshold.value=-14;limiter.ratio.value=8;master.connect(limiter);limiter.connect(audio.destination);}if(audio.state==='suspended')audio.resume().catch(()=>{});}catch{}}
@@ -73,15 +94,15 @@ function paperShower(kind,amount,active){
  if(reduced)return;const c=$('confetti'),ctx=c.getContext('2d');if(!ctx)return;const w=innerWidth,h=innerHeight,dpr=Math.min(devicePixelRatio||1,2);c.width=w*dpr;c.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
  const colors=kind==='level'?['#d4ac54','#be4b35','#fff8e6','#789883']:['#fffaf0','#eee4cc','#e8d6b4','#f8f3e7'];
  const pieces=Array.from({length:amount},(_,i)=>({x:kind==='order'?w*.8:w/2,y:kind==='level'?h*.2:h*.47,vx:(Math.random()-.5)*(kind==='level'?19:15),vy:-Math.random()*16-2,rot:Math.random()*6,size:kind==='level'?4+Math.random()*6:9+Math.random()*13,color:colors[i%colors.length]}));let start,previous;
- function frame(t){if(!active())return;start??=t;const dt=Math.min((t-(previous||t))/16.67,2);previous=t;ctx.clearRect(0,0,w,h);for(const p of pieces){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=.18*dt;p.rot+=.055*dt;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);ctx.fillStyle=p.color;ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size*(kind==='level'?.4:1.3));if(kind!=='level'){ctx.strokeStyle='#aaa28a';ctx.lineWidth=.6;for(let j=0;j<3;j++){ctx.beginPath();ctx.moveTo(-p.size*.3,-p.size*.2+j*3);ctx.lineTo(p.size*.3,-p.size*.2+j*3);ctx.stroke();}}ctx.restore();}if(t-start<2400)requestAnimationFrame(frame);}
+ function frame(t){if(!active()){ctx.clearRect(0,0,w,h);return;}start??=t;const dt=Math.min((t-(previous||t))/16.67,2);previous=t;ctx.clearRect(0,0,w,h);for(const p of pieces){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=.18*dt;p.rot+=.055*dt;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);ctx.fillStyle=p.color;ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size*(kind==='level'?.4:1.3));if(kind!=='level'){ctx.strokeStyle='#aaa28a';ctx.lineWidth=.6;for(let j=0;j<3;j++){ctx.beginPath();ctx.moveTo(-p.size*.3,-p.size*.2+j*3);ctx.lineTo(p.size*.3,-p.size*.2+j*3);ctx.stroke();}}ctx.restore();}if(t-start<2400)requestAnimationFrame(frame);}
  requestAnimationFrame(frame);
 }
-function celebrate(kind,name,value,from,difficulty='normal'){
+function celebrate(kind,name,value,from,difficulty='normal',closeLabel='閉じる'){
  return new Promise(resolve=>{
-  const overlay=$('celebration'),isOrder=kind==='order',isLevel=kind==='level',hard=difficulty==='hard';let active=true;const timers=[],music=new Set();
+  const overlay=$('celebration'),isOrder=kind==='order',isLevel=kind==='level',hard=difficulty==='hard';let active=true,ready=false;const timers=[],music=new Set();
   const later=(fn,ms)=>timers.push(setTimeout(()=>{if(active)fn();},ms));
-  const finish=()=>{if(!active)return;active=false;timers.forEach(clearTimeout);stopSounds(music);overlay.hidden=true;overlay.onclick=null;overlay.onkeydown=null;document.querySelector('.app').inert=false;const ctx=$('confetti').getContext('2d');if(ctx)ctx.clearRect(0,0,$('confetti').width,$('confetti').height);if(navigator.vibrate)navigator.vibrate(0);resolve();};
-  overlay.className='celebration '+(isOrder?'order':isLevel?'levelup':'complete')+' difficulty-'+difficulty+' anticipatory';overlay.hidden=false;document.querySelector('.app').inert=true;
+  const finish=()=>{if(!active)return;active=false;timers.forEach(clearTimeout);stopSounds(music);overlay.hidden=true;overlay.onkeydown=null;$('event-close').onclick=null;$('event-skip').onclick=null;document.querySelector('.app').inert=false;const ctx=$('confetti').getContext('2d');if(ctx)ctx.clearRect(0,0,$('confetti').width,$('confetti').height);if(navigator.vibrate)navigator.vibrate(0);resolve();};
+  overlay.className='celebration '+(isOrder?'order':isLevel?'levelup':'complete')+' difficulty-'+difficulty+' anticipatory';overlay.hidden=false;document.querySelector('.app').inert=true;$('event-close').hidden=true;$('event-close-note').hidden=true;$('event-skip').hidden=false;$('event-close').textContent=closeLabel;$('event-close-note').textContent=closeLabel==='閉じる'?'本社へ戻ります。':'会社を挙げて、もうひとつお知らせです。';
   $('event-intro').textContent=isOrder?'営業部より、緊急連絡。':isLevel?'臨時取締役会、開会。':'経理部より、重要なご報告。';
   $('event-company').textContent=state.companyName;$('event-date').textContent=localDate().replaceAll('-','.');
   $('event-ribbon').textContent=isOrder?(hard?'特別号外':difficulty==='normal'?'号外・大型受注':'号外'):isLevel?'増築のお知らせ':'売上計上';
@@ -91,17 +112,19 @@ function celebrate(kind,name,value,from,difficulty='normal'){
   $('celebrate-message').textContent=isOrder?'完了時の報酬。さあ、ひと仕事！':isLevel?'あなたの会社が少し大きくなりました。':compliment();
   $('celebrate-hint').textContent=isOrder?'営業部一同、期待しております。':isLevel?'小さな会社、大きな一歩。':'本日の売上 +'+value.toLocaleString()+' EXP';
   $('reward').replaceChildren();const label=document.createElement('small'),number=document.createElement('span'),unit=document.createElement('small');label.textContent=isLevel?'会社成長、正式決定':isOrder?'獲得予定実績':'今回の売上';number.textContent=isLevel?'Lv.'+from+' → Lv.'+value:'+0';unit.textContent=isLevel?(value===2?'観葉植物、導入決裁済み。':value===3?'PC・棚、導入決裁済み。':'さらなる成長、全社でお祝い。'):'COMPANY EXP';$('reward').append(label,number,unit);
-  overlay.onclick=finish;overlay.onkeydown=e=>{if(['Escape','Enter',' '].includes(e.key)){e.preventDefault();finish();}};overlay.focus();
-  const anticipation=isOrder?(hard?650:difficulty==='normal'?480:420):isLevel?650:400;
+  const settle=(fastForward=false)=>{if(!active||ready)return;ready=true;timers.forEach(clearTimeout);overlay.classList.remove('anticipatory');overlay.classList.add('impact','settled');if(fastForward){overlay.classList.add('fast-forward');stopSounds(music);}number.textContent=isLevel?'Lv.'+from+' → Lv.'+value:'+'+value.toLocaleString();$('event-skip').hidden=true;$('event-close').hidden=false;$('event-close-note').hidden=false;$('event-close').focus();};
+  $('event-close').onclick=()=>{if(ready)finish();};$('event-skip').onclick=()=>settle(true);
+  overlay.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();if(!ready)settle(true);else $('event-close').focus();}};overlay.focus();
+  const anticipation=isOrder?(hard?1450:difficulty==='normal'?1250:1100):isLevel?1450:1200;
   entranceSound(kind,anticipation,music);
   const reveal=()=>{
    overlay.classList.remove('anticipatory');overlay.classList.add('impact');resultSound(kind,music);
    if(navigator.vibrate&&!reduced)navigator.vibrate(isLevel?[35,45,50,45,90]:isOrder?[20,35,30]:[40,30,70]);
-   const amount=isLevel?140:isOrder?(hard?36:difficulty==='normal'?24:14):(hard?60:difficulty==='normal'?42:26);paperShower(kind,amount,()=>active);
-   if(!isLevel)later(()=>{const start=performance.now();let lastTick=-100;function tick(now){if(!active)return;const p=reduced?1:Math.min((now-start)/720,1);number.textContent='+'+Math.round(value*(1-Math.pow(1-p,3))).toLocaleString();if(now-lastTick>85&&p<1){note(800+p*700,0,.045,'sine',.07,music);lastTick=now;}if(p<1)requestAnimationFrame(tick);}requestAnimationFrame(tick);},300);
-   later(()=>{overlay.classList.add('settled');if(!isLevel){note(784,0,.12,'triangle',.17,music);note(1047,.06,.2,'triangle',.15,music);}},1120);
+   const amount=isLevel?140:isOrder?(hard?36:difficulty==='normal'?24:14):(hard?60:difficulty==='normal'?42:26);paperShower(kind,amount,()=>active&&!ready);
+   if(!isLevel)later(()=>{const start=performance.now();let lastTick=-100;function tick(now){if(!active||ready)return;const p=reduced?1:Math.min((now-start)/1400,1);number.textContent='+'+Math.round(value*(1-Math.pow(1-p,3))).toLocaleString();if(now-lastTick>85&&p<1){note(800+p*700,0,.045,'sine',.07,music);lastTick=now;}if(p<1)requestAnimationFrame(tick);}requestAnimationFrame(tick);},550);
+   later(()=>{settle();if(!isLevel){note(784,0,.12,'triangle',.17,music);note(1047,.06,.2,'triangle',.15,music);}},reduced?900:isLevel?2400:2150);
   };
-  later(reveal,anticipation);later(finish,reduced?anticipation+1800:isOrder?(hard?3000:2750):isLevel?3500:3200);
+  later(reveal,anticipation);
  });
 }
 function tweenGrowth(from,to,duration=650){return new Promise(resolve=>{if(reduced||from===to){render(to);resolve();return;}const start=performance.now();$('progress').style.transition='none';function frame(now){const p=Math.min((now-start)/duration,1),exp=Math.round(from+(to-from)*(1-Math.pow(1-p,3))),g=growth(exp);$('exp').textContent=g.remaining.toLocaleString();$('progress').style.width=g.remaining/g.cost*100+'%';$('percent').textContent=Math.floor(g.remaining/g.cost*100)+'%';if(p<1)requestAnimationFrame(frame);else{$('progress').style.transition='';render(to);resolve();}}requestAnimationFrame(frame);});}
@@ -125,8 +148,8 @@ $('task-form').onsubmit=async e=>{
 };$('task-name').oninput=()=>$('task-name').setCustomValidity('');
 async function complete(id){
  if(busy)return;const index=state.tasks.findIndex(t=>t.id===id);if(index<0)return;busy=true;ensureAudio();daily();const task=state.tasks[index],d=difficulties[task.difficulty],previousExp=state.exp,old=growth(previousExp).level;
- state.tasks.splice(index,1);state.exp+=d.exp;state.today++;state.sales+=d.exp;save();
- try{if(!reduced)await wait(90);await celebrate('complete',task.name,d.exp,undefined,task.difficulty);const next=growth(state.exp).level;if(next>old)await celebrate('level','おめでとう、社長！',next,old,task.difficulty);await animateHome(previousExp,state.exp);$('today').parentElement.classList.remove('pop');void $('today').offsetWidth;$('today').parentElement.classList.add('pop');}
+ state.tasks.splice(index,1);state.exp+=d.exp;state.today++;state.sales+=d.exp;state.completed.unshift({...task,exp:d.exp,completedAt:new Date().toISOString(),companyName:state.companyName});save();
+ try{if(!reduced)await wait(180);const next=growth(state.exp).level;await celebrate('complete',task.name,d.exp,undefined,task.difficulty,next>old?'会社成長のお知らせへ →':'閉じる');if(next>old)await celebrate('level','おめでとう、社長！',next,old,task.difficulty);await animateHome(previousExp,state.exp);$('today').parentElement.classList.remove('pop');void $('today').offsetWidth;$('today').parentElement.classList.add('pop');}
  finally{busy=false;render();($('tasks').querySelector('button')||$('new-task')).focus();}
 }
 function openCompany(mode){
@@ -135,4 +158,4 @@ function openCompany(mode){
 $('general-affairs').onclick=()=>openCompany('rename');$('close-company').onclick=()=>$('company-dialog').close();$('company-dialog').oncancel=e=>{if(companyMode==='found')e.preventDefault();};
 $('company-form').onsubmit=e=>{e.preventDefault();const name=$('company-input').value.trim();if(!name){$('company-input').setCustomValidity('会社名を入力してください');$('company-input').reportValidity();return;}state.companyName=name;state.established=true;save();$('company-dialog').close();render();$('general-affairs').focus();};$('company-input').oninput=()=>$('company-input').setCustomValidity('');
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!busy)render();});
-updateSoundButton();selectDeadline(null);render();if(!state.established)openCompany('found');
+updateSoundButton();selectDeadline(null);render();updateView();if(!state.established)openCompany('found');
