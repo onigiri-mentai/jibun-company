@@ -46,3 +46,5 @@ body{color:#473607;background:#f7f1e1}
 @keyframes sheet-enter{from{transform:translateY(70px);opacity:0}to{transform:translateY(0);opacity:1}}
 @media(max-width:350px){#home-screen .company-top h1{font-size:19px}#home-screen .office svg{height:180px}.task-exp{font-size:18px}.task-exp small{font-size:8px}.setting-row{gap:5px}.setting-row select{max-width:115px}}
 @media(prefers-reduced-motion:reduce){#new-dialog{animation:none}}
+
+.celebration.calm *, .celebration.calm{animation:none!important;transition:none!important}.celebration.calm .event-flash{display:none!important}
