@@ -39,8 +39,8 @@ function celebrate(kind,name,value,from,difficulty='normal',closeLabel='閉じ�
  return new Promise(resolve=>{
   const overlay=$('celebration'),isOrder=kind==='order',isLevel=kind==='level',hard=difficulty==='hard';let active=true,ready=false;const timers=[],music=new Set();
   const later=(fn,ms)=>timers.push(setTimeout(()=>{if(active)fn();},ms));
-  const finish=()=>{if(!active)return;active=false;timers.forEach(clearTimeout);stopSounds(music);overlay.hidden=true;overlay.onkeydown=null;$('event-close').onclick=null;$('event-skip').onclick=null;document.querySelector('.app').inert=false;const ctx=$('confetti').getContext('2d');if(ctx)ctx.clearRect(0,0,$('confetti').width,$('confetti').height);CompanyPlatform.haptic(0);resolve();};
-  overlay.className='celebration '+(isOrder?'order':isLevel?'levelup':'complete')+' difficulty-'+difficulty+' anticipatory'+(reduced?' calm':'');overlay.hidden=false;document.querySelector('.app').inert=true;$('event-close').hidden=true;$('event-close-note').hidden=true;$('event-skip').hidden=false;$('event-close').textContent=closeLabel;$('event-close-note').textContent=closeLabel==='閉じる'?'本社へ戻ります。':'会社を挙げて、もうひとつお知らせです。';
+  const finish=()=>{if(!active)return;active=false;timers.forEach(clearTimeout);stopSounds(music);overlay.hidden=true;document.body.classList.remove('event-open');overlay.onkeydown=null;$('event-close').onclick=null;$('event-skip').onclick=null;document.querySelector('.app').inert=false;const ctx=$('confetti').getContext('2d');if(ctx)ctx.clearRect(0,0,$('confetti').width,$('confetti').height);CompanyPlatform.haptic(0);resolve();};
+  overlay.className='celebration '+(isOrder?'order':isLevel?'levelup':'complete')+' difficulty-'+difficulty+' anticipatory'+(reduced?' calm':'');overlay.hidden=false;document.body.classList.add('event-open');document.querySelector('.app').inert=true;$('event-close').hidden=true;$('event-close-note').hidden=true;$('event-skip').hidden=false;$('event-close').textContent=closeLabel;$('event-close-note').textContent=closeLabel==='閉じる'?'本社へ戻ります。':'会社を挙げて、もうひとつお知らせです。';
   $('event-intro').textContent=isOrder?'営業部より、緊急連絡。':isLevel?'臨時取締役会、開会。':'経理部より、重要なご報告。';
   $('event-company').textContent=state.companyName;$('event-date').textContent=localDate().replaceAll('-','.');
   $('event-ribbon').textContent=isOrder?(hard?'特別号外':difficulty==='normal'?'号外・大型受注':'号外'):isLevel?'増築のお知らせ':'売上計上';
@@ -50,7 +50,7 @@ function celebrate(kind,name,value,from,difficulty='normal',closeLabel='閉じ�
   $('celebrate-message').textContent=isOrder?'完了時の報酬。さあ、ひと仕事！':isLevel?'あなたの会社が少し大きくなりました。':compliment();
   $('celebrate-hint').textContent=isOrder?'営業部一同、期待しております。':isLevel?'小さな会社、大きな一歩。':'本日の売上 +'+value.toLocaleString()+' EXP';
   $('reward').replaceChildren();const label=document.createElement('small'),number=document.createElement('span'),unit=document.createElement('small');label.textContent=isLevel?'会社成長、正式決定':isOrder?'獲得予定実績':'今回の売上';number.textContent=isLevel?'Lv.'+from+' → Lv.'+value:'+0';unit.textContent=isLevel?(value===2?'観葉植物、導入決裁済み。':value===3?'PC・棚、導入決裁済み。':'さらなる成長、全社でお祝い。'):'COMPANY EXP';$('reward').append(label,number,unit);
-  const settle=(fastForward=false)=>{if(!active||ready)return;ready=true;timers.forEach(clearTimeout);overlay.classList.remove('anticipatory');overlay.classList.add('impact','settled');if(fastForward){overlay.classList.add('fast-forward');stopSounds(music);}number.textContent=isLevel?'Lv.'+from+' → Lv.'+value:'+'+value.toLocaleString();$('event-skip').hidden=true;$('event-close').hidden=false;$('event-close-note').hidden=false;$('event-close').focus();};
+  const settle=(fastForward=false)=>{if(!active||ready)return;ready=true;timers.forEach(clearTimeout);overlay.classList.remove('anticipatory');overlay.classList.add('impact','settled');if(fastForward){overlay.classList.add('fast-forward');stopSounds(music);}number.textContent=isLevel?'Lv.'+from+' → Lv.'+value:'+'+value.toLocaleString();$('event-skip').hidden=true;$('event-close').hidden=false;$('event-close-note').hidden=false;fitCelebration();$('event-close').focus({preventScroll:true});};
   $('event-close').onclick=()=>{if(ready)finish();};$('event-skip').onclick=()=>settle(true);
   overlay.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();if(!ready)settle(true);else $('event-close').focus();}};overlay.focus();
   const anticipation=isOrder?(hard?1450:difficulty==='normal'?1250:1100):isLevel?1450:1200;
@@ -65,3 +65,23 @@ function celebrate(kind,name,value,from,difficulty='normal',closeLabel='閉じ�
   later(reveal,anticipation);
  });
 }
+
+// Scale the paper independently of its arrival/stamp animations. Reserve the
+// action row first, and measure the real visible viewport (Safari browser bars).
+function fitCelebration(){
+ const overlay=$('celebration');if(overlay.hidden)return;
+ const viewport=window.visualViewport;
+ overlay.style.setProperty('--event-viewport-height',(viewport?.height||innerHeight)+'px');
+ overlay.style.setProperty('--event-viewport-top',(viewport?.offsetTop||0)+'px');
+ const slot=overlay.querySelector('.event-paper-slot'),paper=overlay.querySelector('.celebration-content');
+ const available=Math.max(1,slot.clientHeight-20),width=Math.max(1,slot.clientWidth-20);
+ const scale=Math.min(1,available/(paper.offsetHeight+16),width/(paper.offsetWidth+16));
+ overlay.querySelector('.event-paper-fit').style.setProperty('--paper-scale',scale);
+}
+const eventResizeObserver=new ResizeObserver(()=>requestAnimationFrame(fitCelebration));
+eventResizeObserver.observe(document.querySelector('.event-paper-slot'));
+eventResizeObserver.observe(document.querySelector('.celebration-content'));
+window.addEventListener('resize',fitCelebration);
+window.visualViewport?.addEventListener('resize',fitCelebration);
+window.visualViewport?.addEventListener('scroll',fitCelebration);
+document.fonts?.ready.then(fitCelebration);
