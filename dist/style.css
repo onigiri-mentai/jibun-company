@@ -103,3 +103,17 @@ body.event-open{overflow:hidden}
 .archive-flower .hanamaru{width:90px;}.archive-flower .hanamaru-icon{width:72px;height:72px;}.archive-flower .hanamaru small{font-size:11px;}
 #project-accepted,#project-completed{font-size:12px;overflow-wrap:anywhere;}
 @media(max-width:350px){.history-record{gap:7px;padding:12px 9px;}.history-record .hanamaru{width:48px;}.history-record .hanamaru-icon{width:42px;height:42px;}}
+
+/* User-provided party ball: tremble closed, then reveal and settle open.
+   Keep both images in one fixed slot so fitting never jumps during the reveal. */
+.levelup .kusudama{width:180px;height:162px;scale:1;margin:0 auto 8px;mix-blend-mode:multiply;}
+.kusudama img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform-origin:50% 0;pointer-events:none;}
+.kusudama-closed{opacity:1;}
+.kusudama-open{opacity:0;}
+.levelup.anticipatory:not(.calm) .kusudama-closed{animation:kusudama-tremble .16s ease-in-out infinite;}
+.levelup.impact .kusudama-closed{opacity:0;}
+.levelup.impact .kusudama-open{opacity:1;animation:kusudama-sway 1.8s ease-out both;}
+.fast-forward.levelup .kusudama-open,.calm.levelup .kusudama-open{animation:none;transform:none;}
+@keyframes kusudama-tremble{0%,100%{transform:rotate(-2deg) translateX(-1px)}50%{transform:rotate(2deg) translateX(1px)}}
+@keyframes kusudama-sway{0%{transform:rotate(-7deg) scale(.94)}22%{transform:rotate(6deg) scale(1)}45%{transform:rotate(-4deg)}66%{transform:rotate(2.5deg)}84%{transform:rotate(-1deg)}100%{transform:rotate(0)}}
+@media(prefers-reduced-motion:reduce){.kusudama img{animation:none!important;transform:none!important;}}
