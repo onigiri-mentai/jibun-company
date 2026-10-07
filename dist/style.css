@@ -63,3 +63,9 @@ body.event-open{overflow:hidden}
 .celebration #celebrate-message{margin-bottom:10px;}
 @media(max-height:600px){.celebration{gap:6px;padding-top:calc(6px + env(safe-area-inset-top));padding-bottom:calc(10px + env(safe-area-inset-bottom));}}
 .event-paper-slot{display:flex;align-items:center;justify-content:center;}
+
+/* User-supplied artwork stays in separate layers so equipment can grow independently.
+   The supplied JPEGs have white backgrounds; multiply blends that white into the room. */
+.office-image{mix-blend-mode:multiply;pointer-events:none}
+#home-screen .office svg.office-scene{height:205px;bottom:17px}
+@media(max-width:350px){#home-screen .office svg.office-scene{height:185px;bottom:22px}}
