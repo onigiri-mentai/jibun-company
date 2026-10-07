@@ -5,7 +5,7 @@ const difficulties = {easy:{name:'かんたん',exp:300,icon:'sun'},normal:{name
 let reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const {localDate,day,addDays,parseDate,quickDeadline,deadlineInfo,growth}=CompanyDomain;
 let state=CompanyDomain.migrate(CompanyStorage.read(),difficulties);reduced=reduced||state.effects==='calm';
-let busy=false,sound=state.sound===true,deadlineChoice=null,companyMode='rename',editingId=null,detailId=null;
+let busy=false,sound=state.sound===true,deadlineChoice=null,companyMode='rename',editingId=null,detailId=null,projectReturnFocus=null;
 function daily(){if(state.day!==day()){state.previousDay={day:state.day,count:state.today,exp:state.sales};state.day=day();state.today=0;state.sales=0;}}
 function save(){try{CompanyStorage.write(state);}catch{showNotice('保存できませんでした。総務部からデータを書き出してください。');}}
 function render(visualExp=state.exp){
@@ -38,12 +38,12 @@ function renderHistory(){
  const list=$('history-list');list.replaceChildren();
  if(!state.completed.length){const empty=document.createElement('div');empty.className='history-empty';const title=document.createElement('h2');title.textContent='まだ、まっさらな実績帳。';const note=document.createElement('p');note.textContent='ひとつ案件を完遂すると、ここに記録されます。歯磨きだって、立派な業務実績です。';empty.append(title,note);list.append(empty);return;}
  let previousDay=null;const today=day(),yesterday=localDate(addDays(new Date(),-1));
- for(const task of [...state.completed].sort((a,b)=>new Date(b.completedAt)-new Date(a.completedAt))){
-  const date=new Date(task.completedAt),dateKey=localDate(date);
-  if(dateKey!==previousDay){const heading=document.createElement('h2');heading.className='history-day';heading.textContent=dateKey===today?'今日の仕事':dateKey===yesterday?'昨日の仕事':`${date.getFullYear()}年${date.getMonth()+1}月${date.getDate()}日の仕事`;list.append(heading);previousDay=dateKey;}
-  const card=document.createElement('article');card.className='history-record';const seal=document.createElement('span');seal.className='history-seal';seal.textContent='完遂';seal.setAttribute('aria-hidden','true');
-  const details=document.createElement('div');details.className='history-details';const name=document.createElement('h3');name.textContent=task.name;const meta=document.createElement('p');const difficulty=difficulties[task.difficulty]||difficulties.normal;meta.textContent=`${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')} 完遂 ／ ${difficulty.name}`;details.append(name,meta);
-  const exp=document.createElement('div');exp.className='history-reward';exp.textContent='+'+task.exp.toLocaleString();const unit=document.createElement('small');unit.textContent='EXP';exp.append(unit);card.append(seal,details,exp);list.append(card);
+ for(const task of [...state.completed].sort((a,b)=>(CompanyDomain.validTimestamp(b.completedAt)?Date.parse(b.completedAt):0)-(CompanyDomain.validTimestamp(a.completedAt)?Date.parse(a.completedAt):0))){
+  const knownDate=CompanyDomain.validTimestamp(task.completedAt),date=knownDate?new Date(task.completedAt):null,dateKey=knownDate?localDate(date):'unknown';
+  if(dateKey!==previousDay){const heading=document.createElement('h2');heading.className='history-day';heading.textContent=!knownDate?'完遂日の記録なし':dateKey===today?'今日の仕事':dateKey===yesterday?'昨日の仕事':`${date.getFullYear()}年${date.getMonth()+1}月${date.getDate()}日の仕事`;list.append(heading);previousDay=dateKey;}
+  const card=document.createElement('button');card.type='button';card.className='history-record';card.setAttribute('aria-label',task.name+'の完遂済み案件票を読む');card.onclick=()=>openArchive(task,card);const seal=document.createElement('span');seal.className='history-seal';seal.textContent='完遂';seal.setAttribute('aria-hidden','true');
+  const details=document.createElement('span');details.className='history-details';const name=document.createElement('span');name.className='history-record-name';name.textContent=task.name;const meta=document.createElement('span');meta.className='history-record-meta';const difficulty=difficulties[task.difficulty]||{name:'難易度の記録なし'};meta.textContent=knownDate?`${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')} 完遂 ／ ${difficulty.name}`:`完遂日時の記録なし ／ ${difficulty.name}`;details.append(name,meta);
+  const exp=document.createElement('span');exp.className='history-reward';exp.textContent='+'+task.exp.toLocaleString();const unit=document.createElement('small');unit.textContent='EXP';exp.append(unit);card.append(seal,details,exp);if(CompanyDomain.onTime(task))card.append(flowerMark());list.append(card);
  }
 }
 let currentPage='home';
@@ -68,12 +68,27 @@ function openTaskForm(task=null){
 }
 function focusProjectCard(id){const card=[...document.querySelectorAll('[data-task-id]')].find(e=>e.dataset.taskId===id);(card?.querySelector('.task-open')||$('new-task')).focus();}
 function openProject(id){
- if(busy)return;const task=state.tasks.find(t=>t.id===id);if(!task)return;detailId=id;$('project-company').textContent=state.companyName+' ／ 進行中';$('project-title').textContent=task.name;$('project-note').textContent=task.note||'';$('project-memo').hidden=!task.note;$('project-difficulty').textContent=difficulties[task.difficulty].name;$('project-deadline').textContent=deadlineInfo(task.deadline)?.label||'期限なし';$('project-exp').textContent='+'+difficulties[task.difficulty].exp.toLocaleString();$('project-dialog').showModal();
+ if(busy)return;const task=state.tasks.find(t=>t.id===id);if(!task)return;detailId=id;projectReturnFocus=null;configureProjectSheet(false);$('project-company').textContent=state.companyName+' ／ 進行中';$('project-title').textContent=task.name;$('project-note').textContent=task.note||'';$('project-memo').hidden=!task.note;$('project-difficulty').textContent=difficulties[task.difficulty].name;$('project-deadline').textContent=deadlineInfo(task.deadline)?.label||'期限なし';$('project-exp').textContent='+'+difficulties[task.difficulty].exp.toLocaleString();$('project-dialog').showModal();
+}
+function configureProjectSheet(archived){
+ $('project-department').textContent=archived?'総務部保管 ／ 完遂済み案件票':'営業部保管 ／ 案件票';$('project-exp-label').textContent=archived?'獲得した実績':'完遂時の実績';
+ for(const id of ['edit-project','complete-project'])$(id).hidden=archived;
+ for(const id of ['project-accepted-row','project-completed-row'])$(id).hidden=!archived;
+ $('project-flower').hidden=true;$('project-flower').replaceChildren();
+}
+function recordDate(value){return CompanyDomain.validTimestamp(value)?new Date(value).toLocaleString('ja-JP',{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'記録なし';}
+function flowerMark(){const mark=document.createElement('span');mark.className='hanamaru';mark.innerHTML=CompanyIcons.flower();const note=document.createElement('small');note.textContent='期限内に完遂！';mark.append(note);return mark;}
+function openArchive(task,trigger){
+ if(busy)return;projectReturnFocus=trigger;configureProjectSheet(true);$('project-company').textContent=(task.companyName||state.companyName)+' ／ 業務実績';$('project-title').textContent=task.name;$('project-note').textContent=task.note||'';$('project-memo').hidden=!task.note;$('project-difficulty').textContent=difficulties[task.difficulty]?.name||'記録なし';const deadline=parseDate(task.deadline);$('project-deadline').textContent=deadline?deadline.toLocaleDateString('ja-JP')+'まで':'期限なし';
+ // The historical reward is the recorded amount, never today's difficulty reward.
+ $('project-exp').textContent='+'+task.exp.toLocaleString();$('project-accepted').textContent=recordDate(task.acceptedAt);$('project-completed').textContent=recordDate(task.completedAt);
+ if(CompanyDomain.onTime(task)){$('project-flower').hidden=false;$('project-flower').append(flowerMark());}
+ $('project-dialog').showModal();
 }
 $('task-note').oninput=resizeMemo;
 $('new-task').onclick=()=>openTaskForm();
 $('close-project').onclick=()=>$('project-dialog').close();
-$('project-dialog').addEventListener('close',()=>focusProjectCard(detailId));
+$('project-dialog').addEventListener('close',()=>{if(projectReturnFocus?.isConnected)projectReturnFocus.focus();else focusProjectCard(detailId);});
 $('edit-project').onclick=()=>{const task=state.tasks.find(t=>t.id===detailId);$('project-dialog').close();if(task)openTaskForm(task);};
 $('complete-project').onclick=()=>{const id=detailId;$('project-dialog').close();complete(id);};
 $('close-dialog').onclick=()=>$('new-dialog').close();$('new-dialog').addEventListener('close',()=>{$('new-task').setAttribute('aria-expanded','false');if(editingId)focusProjectCard(editingId);else $('new-task').focus();});
@@ -102,5 +117,5 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!busy)ren
 $('effects-setting').onchange=e=>{state.effects=e.target.value;reduced=matchMedia('(prefers-reduced-motion: reduce)').matches||state.effects==='calm';save();};
 $('reminders-setting').onchange=e=>{state.reminders=e.target.checked;save();render();};
 $('export-data').onclick=()=>{const blob=new Blob([CompanyStorage.export(state)],{type:'application/json'});const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='jibun-company-backup-'+day()+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
-$('import-data').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const backup=JSON.parse(await file.text()),data=backup.data;if(backup.format!=='jibun-company'||!data||!Number.isFinite(data.exp)||data.exp<0||!Array.isArray(data.tasks)||!Array.isArray(data.completed)||typeof data.companyName!=='string'||data.tasks.some(t=>!t||typeof t.name!=='string'||!difficulties[t.difficulty])||data.completed.some(t=>!t||typeof t.name!=='string'||!Number.isFinite(t.exp)||!Number.isFinite(Date.parse(t.completedAt))))throw Error();$('restore-summary').textContent=data.companyName+' ／ '+data.tasks.length+'件の進行中案件 ／ '+data.exp.toLocaleString()+' EXP';$('restore-dialog').showModal();$('restore-confirm').onclick=()=>{CompanyStorage.write(data);location.reload();};}catch{showNotice('このファイルは読み込めません。じぶんカンパニーのバックアップを選んでください。');}e.target.value='';};
+$('import-data').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const backup=JSON.parse(await file.text()),data=backup.data;if(backup.format!=='jibun-company'||!data||!Number.isFinite(data.exp)||data.exp<0||!Array.isArray(data.tasks)||!Array.isArray(data.completed)||typeof data.companyName!=='string'||data.tasks.some(t=>!t||typeof t.name!=='string'||!difficulties[t.difficulty])||data.completed.some(t=>!t||typeof t.name!=='string'||!Number.isFinite(t.exp)||(t.completedAt!=null&&!CompanyDomain.validTimestamp(t.completedAt))))throw Error();$('restore-summary').textContent=data.companyName+' ／ '+data.tasks.length+'件の進行中案件 ／ '+data.exp.toLocaleString()+' EXP';$('restore-dialog').showModal();$('restore-confirm').onclick=()=>{CompanyStorage.write(data);location.reload();};}catch{showNotice('このファイルは読み込めません。じぶんカンパニーのバックアップを選んでください。');}e.target.value='';};
 $('restore-cancel').onclick=()=>$('restore-dialog').close();
