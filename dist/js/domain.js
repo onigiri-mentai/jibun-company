@@ -14,15 +14,16 @@ if(!state||!Number.isFinite(state.exp)||state.exp<0||!Array.isArray(state.tasks)
 // Existing companies keep their tasks, EXP, and default name without repeating setup.
 if(typeof state.companyName!=='string'||!state.companyName.trim())state.companyName='株式会社じぶん';
 if(typeof state.established!=='boolean')state.established=true;
-state.tasks=state.tasks.filter(t=>t&&typeof t.name==='string').map(t=>({...t,difficulty:difficulties[t.difficulty]?t.difficulty:'normal',deadline:parseDate(t.deadline)?t.deadline:null}));
+state.tasks=state.tasks.filter(t=>t&&typeof t.name==='string').map(t=>({...t,note:typeof t.note==='string'?t.note:'',difficulty:difficulties[t.difficulty]?t.difficulty:'normal',deadline:parseDate(t.deadline)?t.deadline:null}));
 // Older versions kept aggregate EXP, but did not store completed project names.
 if(!Array.isArray(state.completed)){state.completed=[];state.legacyExp=state.exp;}
-state.completed=state.completed.filter(t=>t&&typeof t.name==='string'&&Number.isFinite(t.exp)&&t.exp>=0&&Number.isFinite(new Date(t.completedAt).getTime()));
+state.completed=state.completed.filter(t=>t&&typeof t.name==='string'&&Number.isFinite(t.exp)&&t.exp>=0&&Number.isFinite(new Date(t.completedAt).getTime())).map(t=>({...t,note:typeof t.note==='string'?t.note:''}));
 if(!Number.isFinite(state.legacyExp))state.legacyExp=Math.max(0,state.exp-state.completed.reduce((sum,t)=>sum+t.exp,0));
 state.effects=state.effects||'full';state.reminders=state.reminders===true;state.growthLog=Array.isArray(state.growthLog)?state.growthLog:[];
 
 return state;
 }
 function accept(state,task){state.tasks.push(task);}
+function editProject(state,id,changes){const task=state.tasks.find(t=>t.id===id);if(!task)return null;Object.assign(task,{name:changes.name,note:changes.note,difficulty:changes.difficulty,deadline:changes.deadline});return task;}
 function completeProject(state,id,reward,now=new Date()){const index=state.tasks.findIndex(t=>t.id===id);if(index<0)return null;const task=state.tasks.splice(index,1)[0],old=growth(state.exp).level;state.exp+=reward;state.today++;state.sales+=reward;state.completed.unshift({...task,exp:reward,completedAt:now.toISOString(),companyName:state.companyName});const next=growth(state.exp).level;if(next>old)state.growthLog.unshift({from:old,to:next,occurredAt:now.toISOString()});return task;}
-return {migrate,accept,completeProject,localDate,day,addDays,parseDate,quickDeadline,deadlineInfo,growth};})();
+return {migrate,accept,editProject,completeProject,localDate,day,addDays,parseDate,quickDeadline,deadlineInfo,growth};})();

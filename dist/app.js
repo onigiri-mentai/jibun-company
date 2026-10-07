@@ -5,7 +5,7 @@ const difficulties = {easy:{name:'かんたん',exp:300,icon:'sun'},normal:{name
 let reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const {localDate,day,addDays,parseDate,quickDeadline,deadlineInfo,growth}=CompanyDomain;
 let state=CompanyDomain.migrate(CompanyStorage.read(),difficulties);reduced=reduced||state.effects==='calm';
-let busy=false,sound=state.sound===true,deadlineChoice=null,companyMode='rename';
+let busy=false,sound=state.sound===true,deadlineChoice=null,companyMode='rename',editingId=null,detailId=null;
 function daily(){if(state.day!==day()){state.previousDay={day:state.day,count:state.today,exp:state.sales};state.day=day();state.today=0;state.sales=0;}}
 function save(){try{CompanyStorage.write(state);}catch{showNotice('保存できませんでした。総務部からデータを書き出してください。');}}
 function render(visualExp=state.exp){
@@ -19,14 +19,15 @@ function render(visualExp=state.exp){
  $('remaining-exp').textContent=(g.cost-g.remaining).toLocaleString();CompanyScreens.renderHome(state,g);CompanyScreens.renderRecords(state,g);CompanyScreens.renderAdmin(state);
 
  for(const task of state.tasks){
-  const d=difficulties[task.difficulty],due=deadlineInfo(task.deadline),button=document.createElement('button');button.className='task'+(due?.near?' deadline-near':'');
-  button.setAttribute('aria-label',task.name+'を案件完遂する。'+(due?due.label+'。':'')+'報酬'+d.exp+' EXP');
-  const circle=document.createElement('span');circle.className='check';circle.innerHTML=CompanyIcons.svg('check');
-  const details=document.createElement('span');details.className='task-details';const name=document.createElement('span');name.className='task-name';name.textContent=task.name;
+  const d=difficulties[task.difficulty],due=deadlineInfo(task.deadline),card=document.createElement('article');card.className='task'+(due?.near?' deadline-near':'');card.dataset.taskId=task.id;
+  const check=document.createElement('button');check.type='button';check.className='task-complete check';check.innerHTML=CompanyIcons.svg('check');check.setAttribute('aria-label',task.name+'を案件完遂する。報酬'+d.exp+' EXP');check.onclick=()=>complete(task.id);
+  const open=document.createElement('button');open.type='button';open.className='task-open';open.setAttribute('aria-label',task.name+'の案件票を見る');open.onclick=()=>openProject(task.id);
+  const details=document.createElement('span');details.className='task-details';const name=document.createElement('span');name.className='task-name';name.textContent=task.name;details.append(name);
+  if(task.note){const note=document.createElement('span');note.className='task-note';note.textContent=task.note;details.append(note);}
   const meta=document.createElement('span');meta.className='task-meta';const badge=document.createElement('span');badge.className='task-difficulty';badge.innerHTML=CompanyIcons.svg(d.icon);badge.append(document.createTextNode(d.name));meta.append(badge);
   if(due){const deadline=document.createElement('span');deadline.className='task-deadline'+(due.overdue?' overdue':'');deadline.textContent=due.label;meta.append(deadline);}
-  details.append(name,meta);const reward=document.createElement('span');reward.className='task-exp';reward.textContent='+'+d.exp;const small=document.createElement('small');small.textContent='COMPANY EXP';reward.append(small);
-  button.append(circle,details,reward);button.onclick=()=>complete(task.id);const group=CompanyScreens.taskGroup(task.deadline);$('tasks-'+group).append(button);
+  details.append(meta);const reward=document.createElement('span');reward.className='task-exp';reward.textContent='+'+d.exp;const small=document.createElement('small');small.textContent='COMPANY EXP';reward.append(small);
+  open.append(details,reward);card.append(check,open);card.onclick=e=>{if(e.target===card)openProject(task.id);};$('tasks-'+CompanyScreens.taskGroup(task.deadline)).append(card);
  }
  if(!state.tasks.length){const e=document.createElement('div');e.className='empty';e.textContent='全案件、完遂。社長、おつかれさまでした。\n営業部は次の受注をお待ちしています。';$('tasks').append(e);}
  renderHistory();CompanyIcons.mount();save();
@@ -58,14 +59,32 @@ function selectDeadline(choice){
 }
 for(const button of document.querySelectorAll('[data-deadline]'))button.onclick=()=>{selectDeadline(deadlineChoice===button.dataset.deadline?null:button.dataset.deadline);if(deadlineChoice==='custom'){const input=$('deadline-date');input.focus();try{input.showPicker?.();}catch{}}};
 $('deadline-date').onchange=()=>selectDeadline('custom');$('clear-deadline').onclick=()=>{$('deadline-date').value='';selectDeadline(null);};
-$('new-task').onclick=()=>{if(busy||!state.established)return;selectDeadline(null);$('new-dialog').showModal();$('new-task').setAttribute('aria-expanded','true');setTimeout(()=>$('task-name').focus(),60);};
-$('close-dialog').onclick=()=>$('new-dialog').close();$('new-dialog').addEventListener('close',()=>{$('new-task').setAttribute('aria-expanded','false');$('new-task').focus();});
+function resizeMemo(){const input=$('task-note');input.style.height='auto';input.style.height=Math.min(160,Math.max(58,input.scrollHeight))+'px';}
+function openTaskForm(task=null){
+ if(busy||!state.established)return;editingId=task?.id||null;$('task-form').reset();$('task-name').setCustomValidity('');$('task-note').value=task?.note||'';$('task-name').value=task?.name||'';
+ $('task-form-title').textContent=task?'案件票を書き直す':'次は、どんな案件？';$('task-submit').textContent=task?'変更を保存する':'案件を受注する';
+ if(task){document.querySelector('input[name="difficulty"][value="'+task.difficulty+'"]').checked=true;const due=task.deadline;let choice=null;if(due){choice=['today','tomorrow','week'].find(c=>quickDeadline(c)===due)||'custom';}$('deadline-date').value=due||'';selectDeadline(choice);}else{$('deadline-date').value='';selectDeadline(null);}
+ $('new-dialog').showModal();$('new-task').setAttribute('aria-expanded','true');resizeMemo();setTimeout(()=>$('task-name').focus(),60);
+}
+function focusProjectCard(id){const card=[...document.querySelectorAll('[data-task-id]')].find(e=>e.dataset.taskId===id);(card?.querySelector('.task-open')||$('new-task')).focus();}
+function openProject(id){
+ if(busy)return;const task=state.tasks.find(t=>t.id===id);if(!task)return;detailId=id;$('project-company').textContent=state.companyName+' ／ 進行中';$('project-title').textContent=task.name;$('project-note').textContent=task.note||'';$('project-memo').hidden=!task.note;$('project-difficulty').textContent=difficulties[task.difficulty].name;$('project-deadline').textContent=deadlineInfo(task.deadline)?.label||'期限なし';$('project-exp').textContent='+'+difficulties[task.difficulty].exp.toLocaleString();$('project-dialog').showModal();
+}
+$('task-note').oninput=resizeMemo;
+$('new-task').onclick=()=>openTaskForm();
+$('close-project').onclick=()=>$('project-dialog').close();
+$('project-dialog').addEventListener('close',()=>focusProjectCard(detailId));
+$('edit-project').onclick=()=>{const task=state.tasks.find(t=>t.id===detailId);$('project-dialog').close();if(task)openTaskForm(task);};
+$('complete-project').onclick=()=>{const id=detailId;$('project-dialog').close();complete(id);};
+$('close-dialog').onclick=()=>$('new-dialog').close();$('new-dialog').addEventListener('close',()=>{$('new-task').setAttribute('aria-expanded','false');if(editingId)focusProjectCard(editingId);else $('new-task').focus();});
 $('new-dialog').onclick=e=>{if(e.target===$('new-dialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close();}};
 $('task-form').onsubmit=async e=>{
  e.preventDefault();if(busy)return;const name=$('task-name').value.trim();if(!name){$('task-name').setCustomValidity('案件名を入力してください');$('task-name').reportValidity();return;}
  const difficulty=new FormData(e.target).get('difficulty')||'normal',deadline=deadlineChoice==='custom'?$('deadline-date').value:quickDeadline(deadlineChoice);
  if(deadline&&!parseDate(deadline)){$('deadline-date').reportValidity();return;}
- busy=true;ensureAudio();const id=globalThis.crypto?.randomUUID?.()||Date.now()+'-'+Math.random();CompanyDomain.accept(state,{id,name,difficulty,deadline:deadline||null});save();$('new-dialog').close();e.target.reset();selectDeadline(null);render();
+ const note=$('task-note').value.trim();
+ if(editingId){const id=editingId;CompanyDomain.editProject(state,id,{name,note,difficulty,deadline:deadline||null});save();$('new-dialog').close();editingId=null;render();openProject(id);return;}
+ busy=true;ensureAudio();const id=globalThis.crypto?.randomUUID?.()||Date.now()+'-'+Math.random();CompanyDomain.accept(state,{id,name,note,difficulty,deadline:deadline||null});save();$('new-dialog').close();e.target.reset();selectDeadline(null);render();
  try{await celebrate('order',name,difficulties[difficulty].exp,undefined,difficulty);}finally{busy=false;$('new-task').focus();}
 };$('task-name').oninput=()=>$('task-name').setCustomValidity('');
 async function complete(id){

@@ -71,3 +71,19 @@ body.event-open{overflow:hidden}
 @media(max-width:350px){#home-screen .office > svg.office-scene{height:185px;bottom:22px}}
 
 #home-screen .office svg.furniture-chair-frame{position:static;height:238px;width:170px;}
+
+/* A project card has sibling controls: the sheet and its explicit completion button. */
+.task{padding:0 10px;gap:5px;cursor:default;}
+.task:hover{transform:none;}.task:active{transform:none;}
+.task-complete.check{width:46px;height:46px;min-width:46px;flex-shrink:0;background:#f3e7c4;color:#80652c;border:1.5px solid #b9a674;cursor:pointer;}
+.task-complete:active{background:#fcba03;transform:scale(.94);}
+.task-open{display:flex;align-items:center;gap:10px;flex:1;min-width:0;min-height:80px;text-align:left;background:none;border:0;padding:14px 2px;color:inherit;font:inherit;cursor:pointer;}
+.task-open:active{background:#f8eed2;}.task-note{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-size:11px;line-height:1.65;color:#806f45;margin:4px 0;white-space:pre-wrap;overflow-wrap:anywhere;}
+.memo-label small{font-size:10px;font-weight:400;color:#8b7542;margin-left:6px;}
+#task-note{display:block;width:100%;min-height:58px;max-height:160px;overflow:auto;resize:none;border:1.5px solid #ddcfac;border-radius:8px;background:#fff9ed;color:#473607;font:inherit;font-size:16px;line-height:1.6;padding:10px 12px;outline-color:#fcba03;}
+#task-note::placeholder{font-size:12px;color:#8b7542;}
+#project-dialog{max-height:calc(100dvh - env(safe-area-inset-top) - 20px);overflow-y:auto;padding-bottom:calc(28px + env(safe-area-inset-bottom));}
+#project-dialog h2{overflow-wrap:anywhere;line-height:1.5;font-size:24px;}
+.project-company{font-size:10px!important;color:#8b7542;margin:8px 0;overflow-wrap:anywhere;}
+.project-memo{border-top:1px dashed #b9a674;border-bottom:1px dashed #b9a674;margin:18px 0;padding:12px 0;}.project-memo h3{font-size:11px;color:#8b7542;margin:0 0 6px;}.project-memo p{font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.9;margin:0;}
+.project-facts{margin:20px 0;}.project-facts>div{display:flex;justify-content:space-between;gap:16px;align-items:baseline;padding:10px 0;border-bottom:1px solid #ddcfac;}.project-facts dt{font-size:11px;color:#8b7542;}.project-facts dd{margin:0;text-align:right;font-size:14px;}.project-facts small{font-size:9px;}.project-complete{margin-top:12px;}.project-complete .cute-icon{width:24px;height:24px;}
