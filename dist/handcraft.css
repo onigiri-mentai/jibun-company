@@ -1,0 +1,68 @@
+/* Stable pen contours: strong documents, medium controls, restrained dividers.
+   Masks only decorate pseudo-elements. Layout boxes, text and hit targets stay intact.
+   To reuse: sketch-frame (+ sketch-frame--strong), sketch-button, sketch-divider.
+   No random noise, SVG displacement filters, or extra raster assets. */
+:root{
+ --sketch-ink:#806b3c;
+ --sketch-ink-strong:#715b2d;
+ --sketch-shadow:0 3px 12px #47360712;
+ --sketch-shadow-paper:0 4px 14px #47360714;
+ --sketch-outline-strong:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20300%20200%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20d%3D%22M17%202.5%20Q77%201.8%20145%202.8%20T281%202.2%20Q298%202.8%20297.2%2019%20Q298.4%2063%20297.3%20104%20T297.6%20181%20Q297.3%20198%20281%20197.2%20Q225%20198.4%20149%20197.2%20T18%20197.6%20Q2.2%20198%202.7%20181%20Q1.8%20127%202.9%2096%20T2.3%2019%20Q2.2%203%2017%202.5%20Z%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20vector-effect%3D%22non-scaling-stroke%22%2F%3E%3C%2Fsvg%3E");
+ --sketch-outline-medium:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20300%20200%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20d%3D%22M13%202%20Q82%201.5%20150%202.2%20T287%202%20Q298%202%20298%2014%20Q298.5%2069%20297.8%20103%20T298%20186%20Q298%20198%20286%20198%20Q215%20198.5%20150%20197.8%20T13%20198%20Q2%20198%202%20186%20Q1.5%20132%202.2%2099%20T2%2014%20Q2%202%2013%202%20Z%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%221.7%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20vector-effect%3D%22non-scaling-stroke%22%2F%3E%3C%2Fsvg%3E");
+ --sketch-line:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20300%20200%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20d%3D%22M1%20197%20Q48%20196.4%2098%20197.2%20T199%20196.8%20T299%20197%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%221.25%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20vector-effect%3D%22non-scaling-stroke%22%2F%3E%3C%2Fsvg%3E");
+}
+.sketch-frame,.sketch-button,.sketch-divider{position:relative;}
+.sketch-frame{border-color:transparent;box-shadow:var(--sketch-shadow);}
+.sketch-frame::after,.sketch-button::after{
+ content:"";position:absolute;inset:0;pointer-events:none;z-index:8;
+ background:var(--sketch-ink);-webkit-mask:var(--sketch-outline-medium) center/100% 100% no-repeat;mask:var(--sketch-outline-medium) center/100% 100% no-repeat;
+}
+.sketch-frame--strong::after{background:var(--sketch-ink-strong);-webkit-mask-image:var(--sketch-outline-strong);mask-image:var(--sketch-outline-strong);}
+/* Specificity matches existing paper variants while keeping all original dimensions. */
+#home-screen .company.sketch-frame{border-color:transparent;box-shadow:var(--sketch-shadow);}
+dialog.sketch-frame{box-shadow:0 -3px 20px #47360713;}
+
+.celebration .celebration-content.sketch-frame{box-shadow:var(--sketch-shadow-paper);border-color:transparent;}
+.celebration.levelup .celebration-content.sketch-frame{box-shadow:0 4px 15px #47360718;border-color:transparent;}
+.difficulty-hard.order .celebration-content.sketch-frame{border-color:transparent;}
+/* Controls retain their rounded fill, footprint, focus ring and pressed movement. */
+.sketch-button{border-color:transparent;}
+.primary.sketch-button{box-shadow:0 4px 0 #ae820566,0 2px 7px #4736070d;}
+.primary.sketch-button:active{box-shadow:0 1px 0 #ae820566;}
+.celebration .event-actions #event-close.sketch-button{border-color:transparent;box-shadow:0 3px 0 #89630b55,0 2px 7px #4736070d;}
+.celebration .event-actions #event-close.sketch-button:active{box-shadow:0 1px 0 #89630b55;}
+/* Existing difficulty labels and deadline buttons share the same decorative contour. */
+.difficulties label>span,.deadline-options button{position:relative;border-color:transparent;}
+.difficulties label>span::after,.deadline-options button::after{
+ content:"";position:absolute;inset:0;pointer-events:none;background:#ad955c;
+ -webkit-mask:var(--sketch-outline-medium) center/100% 100% no-repeat;mask:var(--sketch-outline-medium) center/100% 100% no-repeat;
+}
+.difficulties input:checked+span,.deadline-options button[aria-pressed=true]{border-color:transparent;box-shadow:0 2px 0 #b18a2744;}
+.difficulties input:checked+span::after,.deadline-options button[aria-pressed=true]::after{background:#806522;}
+/* Only documents use the wavy rules. Dense tables and progress bars stay straight. */
+.sketch-divider{border-bottom-color:transparent;}
+.sketch-divider::after{content:"";position:absolute;bottom:-1px;left:0;right:0;height:5px;pointer-events:none;background:#a58d55;-webkit-mask:var(--sketch-line) center/100% 100% no-repeat;mask:var(--sketch-line) center/100% 100% no-repeat;}
+.sketch-divider--quiet::after{opacity:.65;}
+.celebration .event-masthead.sketch-divider{border-top-color:transparent;border-bottom-color:transparent;}
+.celebration .event-masthead.sketch-divider::before{content:"";position:absolute;top:-3px;left:0;right:0;height:5px;pointer-events:none;background:#a58d55;-webkit-mask:var(--sketch-line) center/100% 100% no-repeat;mask:var(--sketch-line) center/100% 100% no-repeat;}
+.celebration .event-project.sketch-divider{border-color:transparent;}
+.celebration .event-footer.sketch-divider{border-top-color:transparent;}
+.celebration .event-footer.sketch-divider::after{bottom:auto;top:-3px;opacity:.7;}
+.complete .reward{position:relative;border-bottom-color:transparent;}
+.complete .reward::after{content:"";position:absolute;bottom:0;left:0;right:0;height:5px;pointer-events:none;background:#a58d55;-webkit-mask:var(--sketch-line) center/100% 100% no-repeat;mask:var(--sketch-line) center/100% 100% no-repeat;}
+/* A restrained file-label treatment adds warmth without wobbling ledger rows. */
+.records-section h2,.records-heading{position:relative;}
+.records-section h2::after,.records-heading::after{content:"";position:absolute;left:0;bottom:-4px;width:70px;height:3px;background:#c6ab68;opacity:.55;border-radius:50% 30% 40% 35%;}
+@supports not ((mask-image:linear-gradient(black,black)) or (-webkit-mask-image:linear-gradient(black,black))){
+ .sketch-frame,.sketch-button,.difficulties label>span,.deadline-options button{border-color:#ad955c;}
+ .sketch-frame::after,.sketch-button::after,.sketch-divider::after,.sketch-divider::before,.difficulties label>span::after,.deadline-options button::after,.complete .reward::after{display:none;}
+}
+
+.complete .celebration-content.sketch-frame{background-image:linear-gradient(90deg,transparent 0 20px,#c9817140 20px 21px,transparent 21px),url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20300%2030%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20d%3D%22M0%2028.7%20Q48%2028.25%2099%2028.8%20T199%2028.5%20T300%2028.7%22%20fill%3D%22none%22%20stroke%3D%22%23b9a674%22%20stroke-opacity%3D%22.2%22%20stroke-width%3D%22.8%22%2F%3E%3C%2Fsvg%3E");background-size:auto,100% 30px;}
+.order .event-project.sketch-divider::before{content:"";position:absolute;top:-3px;left:0;right:0;height:5px;pointer-events:none;background:#a58d55;-webkit-mask:var(--sketch-line) center/100% 100% no-repeat;mask:var(--sketch-line) center/100% 100% no-repeat;}
+/* Native modal positioning must not inherit the generic decoration positioning. */
+dialog.sketch-frame{position:fixed;}
+
+/* Scrollable sheets paint their contour on the stationary background, not over text. */
+dialog.sketch-frame{background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20300%20200%22%20preserveAspectRatio%3D%22none%22%3E%3Cpath%20d%3D%22M17%202.5%20Q77%201.8%20145%202.8%20T281%202.2%20Q298%202.8%20297.2%2019%20Q298.4%2063%20297.3%20104%20T297.6%20181%20Q297.3%20198%20281%20197.2%20Q225%20198.4%20149%20197.2%20T18%20197.6%20Q2.2%20198%202.7%20181%20Q1.8%20127%202.9%2096%20T2.3%2019%20Q2.2%203%2017%202.5%20Z%22%20fill%3D%22none%22%20stroke%3D%22%23715b2d%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20vector-effect%3D%22non-scaling-stroke%22%2F%3E%3C%2Fsvg%3E");background-size:100% 100%;background-origin:border-box;background-attachment:scroll;background-repeat:no-repeat;}
+dialog.sketch-frame::after{display:none;}
