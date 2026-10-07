@@ -117,3 +117,6 @@ body.event-open{overflow:hidden}
 @keyframes kusudama-tremble{0%,100%{transform:rotate(-2deg) translateX(-1px)}50%{transform:rotate(2deg) translateX(1px)}}
 @keyframes kusudama-sway{0%{transform:rotate(-7deg) scale(.94)}22%{transform:rotate(6deg) scale(1)}45%{transform:rotate(-4deg)}66%{transform:rotate(2.5deg)}84%{transform:rotate(-1deg)}100%{transform:rotate(0)}}
 @media(prefers-reduced-motion:reduce){.kusudama img{animation:none!important;transform:none!important;}}
+
+/* Preserve the supplied crayon flower; white paper blends into the document. */
+.hanamaru-icon{object-fit:contain;mix-blend-mode:multiply;}
